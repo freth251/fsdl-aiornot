@@ -24,6 +24,7 @@ class ParquetDataset(Dataset):
 
         if self.transform:
             image = self.transform(image)
+            label=torch.tensor(label, dtype=torch.float32)
 
         return image, label
 
