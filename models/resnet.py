@@ -502,9 +502,10 @@ class ResnetModel(pl.LightningModule):
         loss = self.loss(outs[0], ys)
         
         loss= torch.squeeze(loss)
-        self.log("train/loss", loss)
+        outputs = {"loss": loss}
+        self.log("train/loss", loss, on_step=True, on_epoch=True)
         self.log("train/acc", self.train_acc, on_step=False, on_epoch=True)
-        return loss
+        return outputs
     def configure_optimizers(self) -> torch.optim.Optimizer:
         optimizer = torch.optim.Adam(self.parameters(), lr=3e-4)  # https://fsdl.me/ol-reliable-img
         return optimizer 
