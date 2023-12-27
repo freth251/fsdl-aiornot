@@ -23,11 +23,12 @@ def main():
     data = load_dataset("competitions/aiornot")
     dataset = ParquetDataset(data=data['train'], transform=transform)
     model= ResnetModel()
-    trainer = pl.Trainer(max_epochs=1)
+    
     tdl = torch.utils.data.DataLoader(dataset, batch_size=1)
 
     logger = pl.loggers.WandbLogger(log_model="all", save_dir=str(log_dir), job_type="train")
     logger.watch(model, log_freq=100)
+    trainer = pl.Trainer(max_epochs=1, logger=logger)
     trainer.fit(model=model, train_dataloaders=tdl)
 
 

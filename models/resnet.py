@@ -470,7 +470,7 @@ class ResnetModel(pl.LightningModule):
     def block19(self, x):
         x=F.relu(x)
         x= self.avgpool_b19(x)
-        x=x.view(1, 2048)
+        x=x.squeeze(2).squeeze(2)
         x=self.linear_layer_b19(x)
         x=self.sigmoid_b19(x)
         return x
@@ -499,7 +499,8 @@ class ResnetModel(pl.LightningModule):
     def training_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
         xs, ys = batch  # unpack the batch
         outs = self.forward(xs)  # apply the model
-        loss = self.loss(outs[0], ys)
+        outs=outs.squeeze(1)
+        loss = self.loss(outs, ys)
         
         loss= torch.squeeze(loss)
         outputs = {"loss": loss}
