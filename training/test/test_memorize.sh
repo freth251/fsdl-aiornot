@@ -15,7 +15,7 @@ CRITERION="${2:-1.0}"
 # train on GPU if it's available
 GPU=$(python -c 'import torch; print(int(torch.cuda.is_available()))')
 
-python ./training/run_experiment.py \
+python -m training.run_experiment \
   --batch_size 16 \
   --max_epochs "$MAX_EPOCHS"  --num_workers 2 || FAILURE=true
 
