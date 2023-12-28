@@ -3,7 +3,7 @@ set -uo pipefail
 set +e
 
 # tests whether we can achieve a criterion loss
-#  on a single batch within a certain number of epochs
+# on a single batch within a certain number of epochs
 
 FAILURE=false
 
@@ -11,9 +11,6 @@ FAILURE=false
 #   including data download step
 MAX_EPOCHS="${1:-100}"  # syntax for basic optional arguments in bash
 CRITERION="${2:-1.0}"
-
-# train on GPU if it's available
-GPU=$(python -c 'import torch; print(int(torch.cuda.is_available()))')
 
 python -m training.run_experiment \
   --batch_size 16 \
