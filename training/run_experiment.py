@@ -12,8 +12,8 @@ def orderTensor(x):
     x = x.to(torch.float32)
     return x
 
-
-def main():
+def _setup_parser():
+    """Set up Python's ArgumentParser with data, model, trainer, and other arguments."""
     parser = argparse.ArgumentParser(prog="Train_Model")
     parser.add_argument("-b", "--batch_size", help="batch size", type=int, default=1)
     parser.add_argument(
@@ -30,6 +30,19 @@ def main():
         type=int,
         default=1,
     )
+
+    parser.add_argument("-o", "--overfit_batches", help="Used as the flag with the same name in pl.Trainer", type=int, default=0)
+
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        default=False,
+        help="If passed, uses the PyTorch Profiler to track computation, exported as a Chrome-style trace.",
+    )
+    return parser
+
+def main():
+    parser = _setup_parser()
     args = parser.parse_args()
     transform = transforms.Compose(
         [
@@ -51,7 +64,16 @@ def main():
         log_model="all", save_dir=str(args.log_dir), job_type="train"
     )
     logger.watch(model, log_freq=args.log_freq)
-    trainer = pl.Trainer(max_epochs=args.max_epochs, logger=logger)
+    experiment_dir = logger.experiment.dir
+    trainer = pl.Trainer(max_epochs=args.max_epochs, logger=logger, overfit_batches=args.overfit_batches)
+    if args.profile:
+        sched = torch.profiler.schedule(wait=0, warmup=3, active=4, repeat=0)
+        profiler = pl.profiler.PyTorchProfiler(export_to_chrome=True, schedule=sched, dirpath=experiment_dir)
+        profiler.STEP_FUNCTIONS = {"training_step"}  # only profile training
+    else:
+        profiler = pl.profiler.PassThroughProfiler()
+
+    trainer.profiler = profiler
     trainer.fit(model=model, train_dataloaders=tdl)
 
 
