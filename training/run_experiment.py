@@ -1,4 +1,5 @@
 import argparse
+import glob
 
 from data.dataset import AIOrNotDataset
 from datasets import load_dataset
@@ -7,6 +8,7 @@ from models.resnet import ResnetModel
 import pytorch_lightning as pl
 import torch
 from torchvision import transforms
+import wandb
 
 
 def orderTensor(x):
@@ -61,6 +63,9 @@ def main():
         ]
     )
 
+    wandb.finish()
+    wandb.init(project="aiornot-trace", dir=args.log_dir)
+
     data = load_dataset("competitions/aiornot")
     dataset = AIOrNotDataset(data=data["train"], transform=transform)
     model = ResnetModel()
@@ -75,12 +80,16 @@ def main():
     logger.watch(model, log_freq=args.log_freq)
     experiment_dir = logger.experiment.dir
     trainer = pl.Trainer(
-        max_epochs=args.max_epochs, logger=logger, overfit_batches=args.overfit_batches
+        max_epochs=args.max_epochs,
+        logger=logger,
+        overfit_batches=args.overfit_batches,
     )
     if args.profile:
         sched = torch.profiler.schedule(wait=0, warmup=3, active=4, repeat=0)
         profiler = PyTorchProfiler(
-            export_to_chrome=True, schedule=sched, dirpath=experiment_dir
+            export_to_chrome=True,
+            schedule=sched,
+            dirpath=f"{experiment_dir}/tbprofile",
         )
         profiler.STEP_FUNCTIONS = {"training_step"}  # only profile training
     else:
@@ -88,6 +97,15 @@ def main():
 
     trainer.profiler = profiler
     trainer.fit(model=model, train_dataloaders=tdl)
+
+    profile_art = wandb.Artifact(f"trace-{wandb.run.id}", type="profile")
+    profile_art.add_file(
+        glob.glob("logs/wandb/latest-run/tbprofile/*.pt.trace.json")[0],
+        "trace.pt.trace.json",
+    )
+    wandb.run.log_artifact(profile_art)
+    wandb.finish()
+    print("hi")
 
 
 if __name__ == "__main__":
