@@ -12,12 +12,15 @@ def handler(event, _context):
     print("INFO loading image")
     image = _load_image(event)
     if image is None:
-        return {"statusCode": 400, "message": "neither image_url nor image found in event"}
+        return {
+            "statusCode": 400,
+            "message": "neither image_url nor image found in event",
+        }
     print("INFO image loaded")
     print("INFO starting inference")
     pred = model.predict(image)
     print("INFO inference complete")
-    
+
     return pred
 
 

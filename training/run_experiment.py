@@ -62,27 +62,48 @@ def main():
             transforms.Lambda(orderTensor),
         ]
     )
-
-    wandb.finish()
-    wandb.init(project="aiornot-trace", dir=args.log_dir)
-
-    data = load_dataset("competitions/aiornot")
-    dataset = AIOrNotDataset(data=data["train"], transform=transform)
-    model = ResnetModel()
-
-    tdl = torch.utils.data.DataLoader(
-        dataset, batch_size=args.batch_size, num_workers=args.num_workers
-    )
-
     logger = pl.loggers.WandbLogger(
         log_model="all", save_dir=str(args.log_dir), job_type="train"
     )
-    logger.watch(model, log_freq=args.log_freq)
+
     experiment_dir = logger.experiment.dir
+
+    goldstar_metric = "validation/loss"
+    filename_format = "epoch={epoch:04d}-validation.loss={validation/loss:.3f}"
+    if goldstar_metric == "validation/cer":
+        filename_format += "-validation.cer={validation/cer:.3f}"
+    checkpoint_callback = pl.callbacks.ModelCheckpoint(
+        save_top_k=5,
+        filename=filename_format,
+        monitor=goldstar_metric,
+        mode="min",
+        auto_insert_metric_name=False,
+        dirpath=experiment_dir,
+        every_n_epochs=1,
+    )
+
+    summary_callback = pl.callbacks.ModelSummary(max_depth=2)
+
+    callbacks = [summary_callback, checkpoint_callback]
+
+    data = load_dataset("competitions/aiornot")
+    train_dataset = AIOrNotDataset(data=data["train"], transform=transform)
+    test_dataset = AIOrNotDataset(data=data["test"], transform=transform)
+    model = ResnetModel()
+
+    train_dl = torch.utils.data.DataLoader(
+        train_dataset, batch_size=args.batch_size, num_workers=args.num_workers
+    )
+    test_dl = torch.utils.data.DataLoader(
+        test_dataset, batch_size=args.batch_size, num_workers=args.num_workers
+    )
+
+    logger.watch(model, log_freq=args.log_freq)
     trainer = pl.Trainer(
         max_epochs=args.max_epochs,
         logger=logger,
         overfit_batches=args.overfit_batches,
+        callbacks=callbacks,
     )
     if args.profile:
         sched = torch.profiler.schedule(wait=0, warmup=3, active=4, repeat=0)
@@ -96,16 +117,18 @@ def main():
         profiler = PassThroughProfiler()
 
     trainer.profiler = profiler
-    trainer.fit(model=model, train_dataloaders=tdl)
+    trainer.fit(model=model, train_dataloaders=train_dl)
+    if args.profile:
+        profile_art = wandb.Artifact(f"trace-{wandb.run.id}", type="profile")
+        profile_art.add_file(
+            glob.glob("logs/wandb/latest-run/tbprofile/*.pt.trace.json")[0],
+            "trace.pt.trace.json",
+        )
+        wandb.run.log_artifact(profile_art)
+    trainer.profiler = PassThroughProfiler()
+    trainer.test(model=model, dataloaders=test_dl)
 
-    profile_art = wandb.Artifact(f"trace-{wandb.run.id}", type="profile")
-    profile_art.add_file(
-        glob.glob("logs/wandb/latest-run/tbprofile/*.pt.trace.json")[0],
-        "trace.pt.trace.json",
-    )
-    wandb.run.log_artifact(profile_art)
     wandb.finish()
-    print("hi")
 
 
 if __name__ == "__main__":

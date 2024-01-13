@@ -173,6 +173,8 @@ class ResnetModel(pl.LightningModule):
 
         # metrics
         self.train_acc = Accuracy(task="binary")
+        self.val_acc = Accuracy(task="binary")
+        self.test_acc = Accuracy(task="binary")
 
         self.loss = torch.nn.BCELoss()
 
@@ -497,22 +499,55 @@ class ResnetModel(pl.LightningModule):
         x = self.block19(x)
         return x
 
-    def training_step(
-        self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int
-    ) -> torch.Tensor:
+    def _run_on_batch(self, batch, with_preds=False):
         xs, ys = batch  # unpack the batch
         outs = self.forward(xs)  # apply the model
         outs = outs.squeeze(1)
         loss = self.loss(outs, ys)
 
+        return xs, ys, outs, loss
+
+    def training_step(
+        self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int
+    ) -> torch.Tensor:
+        xs, ys, outs, loss = self._run_on_batch(batch)
+        self.train_acc(outs, ys)
+
         loss = torch.squeeze(loss)
         outputs = {"loss": loss}
         self.log("train/loss", loss, on_step=True, on_epoch=True)
         self.log("train/acc", self.train_acc, on_step=False, on_epoch=True)
+
+        self.add_on_first_batch({"logits": outs.detach()}, outputs, batch_idx)
         return outputs
+
+    def validation_step(self, batch, batch_idx):
+        x, y, logits, loss = self._run_on_batch(batch)
+        self.val_acc(logits, y)
+
+        self.log("validation/loss", loss, prog_bar=True, sync_dist=True)
+        self.log(
+            "validation/acc", self.val_acc, on_step=False, on_epoch=True, prog_bar=True
+        )
+
+        outputs = {"loss": loss}
+        self.add_on_first_batch({"logits": logits.detach()}, outputs, batch_idx)
+
+        return outputs
+
+    def test_step(self, batch, batch_idx):
+        x, y, logits, loss = self._run_on_batch(batch)
+        self.test_acc(logits, y)
+
+        self.log("test/loss", loss, on_step=False, on_epoch=True)
+        self.log("test/acc", self.test_acc, on_step=False, on_epoch=True)
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         optimizer = torch.optim.Adam(
             self.parameters(), lr=3e-4
         )  # https://fsdl.me/ol-reliable-img
         return optimizer
+
+    def add_on_first_batch(self, metrics, outputs, batch_idx):
+        if batch_idx == 0:
+            outputs.update(metrics)
