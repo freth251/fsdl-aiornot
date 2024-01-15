@@ -29,6 +29,7 @@ class AiImageRecognizer:
         self.transform = transforms.Compose(
             [
                 transforms.Resize((224, 224)),
+                transforms.Lambda(lambda img: img.convert("RGB")),
                 transforms.ToTensor(),
                 transforms.Lambda(AiImageRecognizer._orderTensor),
             ]

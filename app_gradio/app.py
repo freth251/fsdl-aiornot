@@ -100,9 +100,8 @@ class PredictorBackend:
         payload = json.dumps({"image": "data:image/png;base64," + encoded_image})
 
         response = requests.post(self.url, data=payload, headers=headers)
-        pred = response.json()["pred"]
 
-        return {"AI 🤖": pred, "Human 👤": 1 - pred}
+        return response.json()
 
 
 def _make_parser():
