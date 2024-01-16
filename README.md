@@ -1,3 +1,12 @@
+# AI Or Not
+
+![ScreenShot](image.png)
+
+
+
+**Hosted [here](http://18.234.51.228:11700)** 
+
+
 
 The purpose of this project is to learn the concepts presented in FSDL 2022 by building, training and deploying my own model. The model is purposely chosen to be as simple as possible so not to spend too much time on model architecture and instead focus on the other parts of the deep learning stack.
 
