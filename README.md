@@ -4,7 +4,7 @@
 
 
 
-**Hosted [here](http://18.234.51.228:11700)** 
+**Hosted [here](http://18.234.51.228:11700)** *(Currently unavailable, took it down to save costs on AWS, will redeploy at a later date.)* 
 
 
 
